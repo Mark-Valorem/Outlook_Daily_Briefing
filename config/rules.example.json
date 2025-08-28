@@ -1,0 +1,62 @@
+{
+  "report": {
+    "to": "you@yourcompany.com",
+    "subject_template": "Daily Outlook Briefing - {{ timestamp_local }}",
+    "include_sections": [
+      "high_priority",
+      "customers_direct",
+      "customers_team",
+      "internal",
+      "calendar_today",
+      "overdue_month"
+    ],
+    "max_items_per_section": 20,
+    "preview_html": "docs/samples/example-summary.html"
+  },
+  "behaviour": {
+    "only_when_outlook_open": true,
+    "lookback_days_inbox": 2,
+    "overdue_days": 30
+  },
+  "priorities": {
+    "vip_domains": [
+      "keycustomer.com",
+      "board.example"
+    ],
+    "vip_senders": [
+      "ceo@yourcompany.com",
+      "cfo@yourcompany.com"
+    ],
+    "ignore_domains": [
+      "newsletter.example",
+      "noreply.example"
+    ],
+    "downrank_domains": [
+      "orders.example"
+    ],
+    "group_mappings": {
+      "globallubricant.com": "Jason's Clients"
+    },
+    "keyword_rules": [
+      {
+        "pattern": "(?i)\\burgent\\b|\\bASAP\\b|\\bimmediate\\b",
+        "priority": "critical",
+        "suggest": "Reply today"
+      },
+      {
+        "pattern": "(?i)\\binvoice\\b|\\bpayment\\b",
+        "priority": "high",
+        "suggest": "Review and respond"
+      },
+      {
+        "pattern": "(?i)\\bmeeting\\b|\\bcalendar\\b|\\binvite\\b",
+        "priority": "high",
+        "suggest": "Confirm or propose time"
+      }
+    ]
+  },
+  "calendar": {
+    "include_today": true,
+    "include_tomorrow_first_meeting": true
+  }
+}
