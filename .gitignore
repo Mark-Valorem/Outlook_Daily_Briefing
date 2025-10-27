@@ -89,3 +89,6 @@ Desktop.ini
 # Outlook temporary files
 ~$*
 *.tmp
+
+# Archive folder (deprecated code and unused files)
+archive/
