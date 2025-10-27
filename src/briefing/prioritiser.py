@@ -40,25 +40,13 @@ class EmailPrioritiser:
             -x.received_time.timestamp()  # Newest first
         ))
 
-        # Group by day (using configured timezone)
-        timezone_str = self.config.get('behaviour', {}).get('timezone', 'UTC')
-
-        try:
-            from zoneinfo import ZoneInfo
-            tz = ZoneInfo(timezone_str)
-        except ImportError:
-            # Fallback for Python < 3.9
-            import pytz
-            tz = pytz.timezone(timezone_str)
-
+        # Group by day
+        # NOTE: Outlook COM returns ReceivedTime in local timezone but marked as UTC.
+        # We use the date directly without conversion to match Outlook's display.
         grouped_by_day = {}
         for item in items_sorted:
-            # Convert received time to configured timezone
-            if hasattr(item.received_time, 'astimezone'):
-                item_date = item.received_time.astimezone(tz).date()
-            else:
-                # Fallback if datetime is naive
-                item_date = item.received_time.date()
+            # Use date directly from ReceivedTime (already in local/display timezone)
+            item_date = item.received_time.date()
 
             day_key = item_date.strftime('%Y-%m-%d')
             if day_key not in grouped_by_day:

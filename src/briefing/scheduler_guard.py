@@ -12,13 +12,18 @@ class SchedulerGuard:
         self.current_day = self.current_time.weekday()  # 0=Monday, 6=Sunday
         
     def should_run(self, mode: str = "auto") -> bool:
+        # Force mode bypasses all checks (weekday, time windows, etc.)
+        if mode == "force":
+            logger.info("Running in force mode - bypassing all checks")
+            return True
+
         # Check if it's a weekday (Monday=0 to Friday=4)
         if self.current_day > 4:  # Saturday=5, Sunday=6
             logger.info(f"Weekend detected ({self._day_name()}), skipping")
             return False
-            
-        # If mode is specified, always run
-        if mode in ["morning", "evening", "force"]:
+
+        # If specific mode is set (morning/evening), run on weekdays
+        if mode in ["morning", "evening"]:
             logger.info(f"Running in {mode} mode")
             return True
             

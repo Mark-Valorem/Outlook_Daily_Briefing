@@ -10,9 +10,7 @@ strScriptPath = CreateObject("Scripting.FileSystemObject").GetParentFolderName(W
 ' Change to project directory
 objShell.CurrentDirectory = strScriptPath
 
-' Run Python script silently (hidden console window)
-' Force mode: Bypasses time window checks, runs immediately
-objShell.Run "python src\run_summary.py --config config\config.yaml --mode force", 0, True
-
-' Alternative: Uncomment line below to see console output for debugging
-' objShell.Run "python src\run_summary.py --config config\config.yaml --mode force", 1, True
+' Run Python script with visible console window for debugging
+' Force mode: Bypasses time window checks, runs immediately (including weekends)
+' Window parameter: 1 = Visible (for debugging), 0 = Hidden (for production)
+objShell.Run "python src\run_summary.py --config config\config.yaml --mode force", 1, True
