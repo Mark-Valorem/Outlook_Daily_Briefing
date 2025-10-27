@@ -172,7 +172,7 @@ class EmailCollector:
         return False
 
     def _is_vip_sender(self, email: str, config: Dict[str, Any]) -> bool:
-        """Check if email is from VIP senders list (individual people, not domains)."""
+        """Check if email is from VIP senders list (specific individuals only, not domains)."""
         priorities = config.get('priorities', {})
         vip_senders = [s.lower() for s in priorities.get('vip_senders', [])]
         email_lower = email.lower()

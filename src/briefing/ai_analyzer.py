@@ -65,8 +65,8 @@ class EmailAnalyzer:
             # All VIP emails (domain or sender)
             return True
         elif criteria == 'top_priority':
-            # Could implement more complex logic here
-            return email_item.is_flagged and email_item.importance >= 1
+            # All flagged emails regardless of importance
+            return email_item.is_flagged
 
         return False
 
