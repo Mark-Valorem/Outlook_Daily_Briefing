@@ -1,47 +1,67 @@
 report:
   to: "you@yourcompany.com"
-  subject_template: "Daily Outlook Briefing - {{ timestamp_local }}"
-  include_sections:
-    - high_priority
-    - customers_direct
-    - customers_team
-    - internal
-    - calendar_today
-    - overdue_month
-  max_items_per_section: 20
+  subject_template: "7-day Outlook Smart Review – {{ today }} {{ scheduled_time }}"
+  group_by: "day"
+  columns:
+    - Priority
+    - Date Received
+    - Sender
+    - Subject
+    - Snippet / Summary
+    - Status
+    - Recommended Action
+    - Why It Matters
+  max_items_per_day: 50
   preview_html: "docs/samples/example-summary.html"   # optional
 
 behaviour:
   only_when_outlook_open: true
-  lookback_days_inbox: 2
-  overdue_days: 30
+  lookback_days_inbox: 7
+  include_unread_or_flagged_only: true
+  exclude_meeting_items: true
+  timezone: "Australia/Sydney"
 
 priorities:
   vip_domains:
+    - "valorem.com"
     - "keycustomer.com"
+    - "partnerdomain.com"
     - "board.example"
   vip_senders:
-    - "ceo@yourcompany.com"
+    - "ceo@valorem.com"
     - "cfo@yourcompany.com"
+    - "vp@partnerdomain.com"
+  ignore_match:
+    - "unsubscribe"
+    - "no-reply"
+    - "automated"
+    - "calendar"
+    - "invitation"
   ignore_domains:
     - "newsletter.example"
     - "noreply.example"
-  downrank_domains:         # orders that are handled by group inbox
+  downrank_domains:
     - "orders.example"
-  group_mappings:           # group certain customers to staff owners
+    - "ops@valorem.com"
+  group_mappings:
     "globallubricant.com": "Jason's Clients"
 
   keyword_rules:
     - pattern: "(?i)\\burgent\\b|\\bASAP\\b|\\bimmediate\\b"
       priority: critical
       suggest: "Reply today"
+    - pattern: "(?i)\\btender\\b|\\bRFP\\b|\\bproposal\\b"
+      priority: critical
+      suggest: "Review tender requirements"
     - pattern: "(?i)\\binvoice\\b|\\bpayment\\b"
       priority: high
-      suggest: "Review and respond"
+      suggest: "Review and process"
+    - pattern: "(?i)\\bcontract\\b|\\bagreement\\b"
+      priority: high
+      suggest: "Review contract terms"
+    - pattern: "(?i)\\bpricing\\b|\\bquote\\b"
+      priority: high
+      suggest: "Prepare pricing response"
     - pattern: "(?i)\\bmeeting\\b|\\bcalendar\\b|\\binvite\\b"
       priority: high
       suggest: "Confirm or propose time"
-
-calendar:
-  include_today: true
-  include_tomorrow_first_meeting: true

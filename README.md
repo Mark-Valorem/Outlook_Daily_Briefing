@@ -319,6 +319,40 @@ Tune `keyword_rules`, `vip_domains`, and `ignore_domains` in config.yaml.
 **Report is too long**
 Reduce `max_items_per_section` or narrow `lookback_days_inbox`.
 
+## Known Issues and Bug Fixes
+
+### Issue: "Error converting mail item: <unknown>.ReceivedTime"
+
+**Symptom:** Script shows error during email collection but continues to run:
+```
+briefing.collector - ERROR - Error converting mail item: <unknown>.ReceivedTime
+```
+
+**Root Cause:** Some emails in Outlook (drafts, meeting requests, corrupted items, or items with malformed timestamps) cannot have their ReceivedTime property accessed properly through COM automation.
+
+**Impact:** 
+- The script continues to work and processes other emails normally
+- One or more problematic emails are skipped during processing
+- Final report is still generated successfully
+
+**Current Workarounds:**
+1. **Use shorter time periods** to avoid problematic emails:
+   ```bash
+   python "src\run_summary.py" --config "config\config.yaml" --dry-run --mode morning --since 6h
+   ```
+
+2. **Clean up Outlook** by moving drafts to proper folders or deleting corrupted items
+
+**Planned Fix:** 
+- Add proper exception handling in `collector.py` to gracefully skip problematic emails
+- Log which specific email caused the issue for easier identification
+- Implement fallback timestamp handling for edge cases
+
+**Technical Details:**
+- Error occurs in `briefing/collector.py` line 123 when accessing `item.ReceivedTime`
+- This is a COM automation limitation when dealing with certain Outlook item types
+- The script's error handling allows it to continue processing despite this issue
+
 ## Contributing
 
 Issues and pull requests are welcome. Please include clear reproduction steps and proposed changes. Use British English in documentation and commit messages where practical.

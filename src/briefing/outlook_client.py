@@ -34,19 +34,29 @@ class OutlookClient:
                     logger.error(f"Failed to start Outlook: {e}")
                     return False
                     
-    def get_inbox_items(self, lookback_days: int = 2) -> List[Any]:
+    def get_inbox_items(self, lookback_days: int = 7, unread_or_flagged_only: bool = True) -> List[Any]:
         if not self.namespace:
             return []
-            
+
         inbox = self.namespace.GetDefaultFolder(6)  # 6 = olFolderInbox
         items = inbox.Items
         items.Sort("[ReceivedTime]", True)  # Sort by newest first
-        
+
         cutoff_date = datetime.now() - timedelta(days=lookback_days)
-        filter_str = f"[ReceivedTime] >= '{cutoff_date.strftime('%m/%d/%Y')}'"
-        
+        date_filter = f"[ReceivedTime] >= '{cutoff_date.strftime('%m/%d/%Y')}'"
+
+        # Build filter string with status and message class
+        if unread_or_flagged_only:
+            # Status filter: Unread OR Flagged (FlagStatus = 2 means flagged)
+            status_filter = "([UnRead] = True) OR ([FlagStatus] = 2)"
+            # MessageClass filter: Only email messages (IPM.Note)
+            filter_str = f"({date_filter}) AND ({status_filter}) AND ([MessageClass] = 'IPM.Note')"
+        else:
+            filter_str = f"{date_filter} AND ([MessageClass] = 'IPM.Note')"
+
         try:
             filtered_items = items.Restrict(filter_str)
+            logger.info(f"MAPI filter applied: {filter_str}")
             return list(filtered_items)
         except Exception as e:
             logger.error(f"Error filtering inbox items: {e}")

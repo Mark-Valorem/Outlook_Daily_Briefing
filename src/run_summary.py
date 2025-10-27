@@ -7,6 +7,7 @@ import logging
 from datetime import datetime, timedelta
 import json
 import yaml
+import tempfile
 
 # Add src to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -16,6 +17,7 @@ from briefing.collector import EmailCollector
 from briefing.prioritiser import EmailPrioritiser
 from briefing.renderer import ReportRenderer
 from briefing.scheduler_guard import SchedulerGuard
+from briefing.ai_analyzer import EmailAnalyzer
 
 
 def setup_logging(verbose: bool = False):
@@ -91,35 +93,38 @@ def main():
             logger.warning("Could not connect to Outlook")
             sys.exit(0)
             
-        # Collect items
+        # Collect items (only VIP inbox emails now)
         collector = EmailCollector(outlook)
-        all_items = collector.collect_all(config)
-        
-        # Prioritise and group emails
+        collected = collector.collect_all(config)
+        all_emails = collected.get('inbox', [])
+
+        logger.info(f"Collected {len(all_emails)} VIP emails")
+
+        # Prioritise and group by day
         prioritiser = EmailPrioritiser(config)
-        
-        # Combine inbox and sent items for prioritisation
-        all_emails = all_items.get('inbox', []) + all_items.get('sent', [])
-        grouped_emails = prioritiser.prioritise_and_group(all_emails)
-        
-        # Add overdue items to grouped emails
-        if all_items.get('overdue'):
-            overdue_emails = prioritiser.prioritise_and_group(all_items['overdue'])
-            grouped_emails['overdue_month'] = overdue_emails.get('high_priority', []) + \
-                                             overdue_emails.get('customers_direct', []) + \
-                                             overdue_emails.get('customers_team', [])
-            
-        # Get calendar items
-        calendar_items = all_items.get('calendar_today', [])
-        if actual_mode == 'morning' and all_items.get('calendar_tomorrow'):
-            # Add first meeting of tomorrow if in morning mode
-            tomorrow_items = sorted(all_items['calendar_tomorrow'], key=lambda x: x.start_time)
-            if tomorrow_items:
-                calendar_items.append(tomorrow_items[0])
-                
+        grouped_by_day = prioritiser.prioritise_and_group(all_emails)
+
+        # AI-powered analysis (if enabled)
+        analyzer = EmailAnalyzer(config)
+        if analyzer.is_enabled():
+            logger.info("AI analysis enabled - analyzing qualifying emails")
+            ai_results = analyzer.analyze_batch(all_emails)
+
+            # Update emails with AI-generated summaries and actions
+            for email in all_emails:
+                if email.entry_id in ai_results:
+                    result = ai_results[email.entry_id]
+                    if result.success:
+                        email.ai_summary = result.summary
+                        # Replace recommended_action with AI version
+                        email.recommended_action = result.recommended_action
+                        logger.debug(f"AI updated: {email.subject[:40]}")
+        else:
+            logger.debug("AI analysis disabled or not available")
+
         # Render report
         renderer = ReportRenderer()
-        html_report = renderer.render_report(grouped_emails, calendar_items, config, actual_mode)
+        html_report = renderer.render_report(grouped_by_day, config, actual_mode)
         subject = renderer.render_subject(config, actual_mode)
         
         # Send or display report
@@ -127,31 +132,44 @@ def main():
             logger.info("DRY RUN MODE - Email not sent")
             logger.info(f"Subject: {subject}")
             logger.info(f"To: {config['report']['to']}")
-            
+
             # Save preview if configured
             preview_path = config.get('report', {}).get('preview_html')
             if preview_path:
                 logger.info(f"Report preview saved to: {preview_path}")
-                
+
             # Print summary stats
-            total_emails = sum(len(items) for items in grouped_emails.values())
-            logger.info(f"Total emails processed: {total_emails}")
-            logger.info(f"Total calendar items: {len(calendar_items)}")
-            
-            # Print sample of high priority items
-            if grouped_emails.get('high_priority'):
-                logger.info("\nHigh Priority Items:")
-                for item in grouped_emails['high_priority'][:5]:
-                    logger.info(f"  - {item.subject} (from: {item.sender_name}, score: {item.priority_score})")
+            total_emails = sum(len(emails) for emails in grouped_by_day.values())
+            logger.info(f"\nTotal VIP emails: {total_emails}")
+            logger.info(f"Days with emails: {len(grouped_by_day)}")
+
+            # Print sample from each day
+            for day_key, emails in list(grouped_by_day.items())[:3]:
+                logger.info(f"\n{day_key}: {len(emails)} emails")
+                for email in emails[:2]:
+                    logger.info(f"  - [{email.status_label}] {email.subject[:60]}")
                     
         else:
-            # Send the email
-            outlook.send_email(
-                to=config['report']['to'],
-                subject=subject,
-                html_body=html_report
-            )
-            logger.info(f"Report sent successfully to {config['report']['to']}")
+            # Create temporary HTML file for attachment
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as temp_file:
+                temp_file.write(html_report)
+                temp_path = temp_file.name
+
+            try:
+                # Send the email with HTML attachment
+                outlook.send_email(
+                    to=config['report']['to'],
+                    subject=subject,
+                    html_body=html_report,
+                    attachments=[temp_path]
+                )
+                logger.info(f"Report sent successfully to {config['report']['to']} with HTML attachment")
+            finally:
+                # Clean up temporary file
+                try:
+                    os.unlink(temp_path)
+                except Exception as e:
+                    logger.warning(f"Failed to delete temporary file {temp_path}: {e}")
             
     except FileNotFoundError as e:
         logger.error(f"Configuration file error: {e}")

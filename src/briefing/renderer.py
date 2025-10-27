@@ -3,6 +3,7 @@ from typing import List, Dict, Any
 from jinja2 import Environment, FileSystemLoader
 import os
 import logging
+from tzlocal import get_localzone
 from .collector import EmailItem, CalendarItem
 
 logger = logging.getLogger(__name__)
@@ -23,34 +24,41 @@ class ReportRenderer:
         self.env.filters['format_date'] = self._format_date
         self.env.filters['truncate_subject'] = self._truncate_subject
         
-    def render_report(self, 
-                     grouped_emails: Dict[str, List[EmailItem]], 
-                     calendar_items: List[CalendarItem],
+    def render_report(self,
+                     grouped_by_day: Dict[str, List[EmailItem]],
                      config: Dict[str, Any],
                      mode: str = "morning") -> str:
-        
+
         template = self.env.get_template("report.html.j2")
-        
+
+        # Get all emails for Top 3 calculation
+        all_emails = [email for day_emails in grouped_by_day.values() for email in day_emails]
+
+        # Top 3 Next Actions: Flagged + High Importance, newest first
+        top_3 = [e for e in all_emails if e.is_flagged and e.importance == 2]
+        top_3 = sorted(top_3, key=lambda x: -x.received_time.timestamp())[:3]
+
+        # Convert day keys to formatted date strings
+        days_formatted = {}
+        for day_key, emails in sorted(grouped_by_day.items(), reverse=True):
+            date_obj = datetime.strptime(day_key, '%Y-%m-%d').date()
+            day_label = date_obj.strftime('%A %d %b %Y')  # "Friday 24 Oct 2025"
+            days_formatted[day_label] = emails
+
         # Prepare context
         context = {
-            "timestamp": datetime.now(),
             "timestamp_local": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "mode": mode,
-            "grouped_emails": grouped_emails,
-            "calendar_items": calendar_items,
-            "config": config,
-            "sections": config.get("report", {}).get("include_sections", []),
-            "max_items": config.get("report", {}).get("max_items_per_section", 20)
+            "grouped_by_day": days_formatted,
+            "top_3_actions": top_3,
+            "max_items_per_day": config.get("report", {}).get("max_items_per_day", 50),
+            "total_emails": len(all_emails),
+            "total_days": len(grouped_by_day)
         }
-        
-        # Count total items
-        total_emails = sum(len(items) for items in grouped_emails.values())
-        context["total_emails"] = total_emails
-        context["total_calendar"] = len(calendar_items)
-        
+
         # Render HTML
         html = template.render(**context)
-        
+
         # Optionally save preview
         preview_path = config.get("report", {}).get("preview_html")
         if preview_path:
@@ -61,18 +69,24 @@ class ReportRenderer:
                 logger.info(f"Preview saved to {preview_path}")
             except Exception as e:
                 logger.error(f"Failed to save preview: {e}")
-                
+
         return html
         
     def render_subject(self, config: Dict[str, Any], mode: str = "morning") -> str:
-        template_str = config.get("report", {}).get("subject_template", 
-                                                    "Daily Outlook Briefing - {{ timestamp_local }}")
-        
-        # Simple template replacement
-        timestamp_local = datetime.now().strftime("%Y-%m-%d %H:%M")
-        subject = template_str.replace("{{ timestamp_local }}", timestamp_local)
+        template_str = config.get("report", {}).get("subject_template",
+                                                    "7-day Outlook Smart Review – {{ today }} {{ scheduled_time }}")
+
+        # Get today's date
+        today = datetime.now().strftime("%Y-%m-%d")
+
+        # Map mode to scheduled time
+        scheduled_time = "09:00" if mode == "morning" else "17:00"
+
+        # Replace template variables
+        subject = template_str.replace("{{ today }}", today)
+        subject = subject.replace("{{ scheduled_time }}", scheduled_time)
         subject = subject.replace("{{ mode }}", mode.capitalize())
-        
+
         return subject
         
     @staticmethod

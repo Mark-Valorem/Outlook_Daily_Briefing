@@ -23,6 +23,12 @@ class EmailItem:
     priority_score: int = 0
     priority_reason: str = ""
     group_label: str = ""
+    priority_label: str = ""  # "High", "Normal", "Low"
+    status_label: str = ""    # "Flagged", "Unread", or "VIP"
+    recommended_action: str = ""
+    why_it_matters: str = ""
+    is_vip_sender: bool = False  # True if from vip_senders list
+    ai_summary: str = ""  # AI-generated summary (optional)
     
 
 @dataclass
@@ -43,53 +49,32 @@ class CalendarItem:
 class EmailCollector:
     def __init__(self, outlook_client):
         self.outlook = outlook_client
-        
+
     def collect_all(self, config: Dict[str, Any]) -> Dict[str, List[Any]]:
         behaviour = config.get("behaviour", {})
-        lookback_days = behaviour.get("lookback_days_inbox", 2)
-        overdue_days = behaviour.get("overdue_days", 30)
-        
+        lookback_days = behaviour.get("lookback_days_inbox", 7)
+        unread_or_flagged_only = behaviour.get("include_unread_or_flagged_only", True)
+
         collected = {
-            "inbox": [],
-            "sent": [],
-            "calendar_today": [],
-            "calendar_tomorrow": [],
-            "overdue": []
+            "inbox": []
         }
-        
-        # Collect inbox items
-        inbox_items = self.outlook.get_inbox_items(lookback_days)
-        collected["inbox"] = [self._convert_mail_item(item) for item in inbox_items]
-        logger.info(f"Collected {len(collected['inbox'])} inbox items")
-        
-        # Collect sent items
-        sent_items = self.outlook.get_sent_items(lookback_days)
-        collected["sent"] = [self._convert_mail_item(item, "Sent") for item in sent_items]
-        logger.info(f"Collected {len(collected['sent'])} sent items")
-        
-        # Collect calendar items for today
-        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        today_end = today_start + timedelta(days=1)
-        calendar_today = self.outlook.get_calendar_items(today_start, today_end)
-        collected["calendar_today"] = [self._convert_calendar_item(item) for item in calendar_today]
-        logger.info(f"Collected {len(collected['calendar_today'])} calendar items for today")
-        
-        # Collect calendar items for tomorrow (if configured)
-        if config.get("calendar", {}).get("include_tomorrow_first_meeting", False):
-            tomorrow_start = today_end
-            tomorrow_end = tomorrow_start + timedelta(days=1)
-            calendar_tomorrow = self.outlook.get_calendar_items(tomorrow_start, tomorrow_end)
-            collected["calendar_tomorrow"] = [self._convert_calendar_item(item) for item in calendar_tomorrow]
-            logger.info(f"Collected {len(collected['calendar_tomorrow'])} calendar items for tomorrow")
-        
-        # Collect overdue items
-        overdue_items = self.outlook.get_overdue_items(overdue_days)
-        collected["overdue"] = [self._convert_mail_item(item, "Overdue") for item in overdue_items]
-        logger.info(f"Collected {len(collected['overdue'])} overdue items")
-        
+
+        # Collect inbox items with MAPI filtering
+        inbox_items = self.outlook.get_inbox_items(lookback_days, unread_or_flagged_only)
+
+        # Convert and apply VIP post-filtering
+        vip_filtered = []
+        for item in inbox_items:
+            email_item = self._convert_mail_item(item, "Inbox", config)
+            if email_item:  # None means filtered out
+                vip_filtered.append(email_item)
+
+        collected["inbox"] = vip_filtered
+        logger.info(f"Collected {len(inbox_items)} inbox items, {len(vip_filtered)} after VIP filtering")
+
         return collected
         
-    def _convert_mail_item(self, item, folder: str = "Inbox") -> EmailItem:
+    def _convert_mail_item(self, item, folder: str = "Inbox", config: Dict[str, Any] = None) -> Optional[EmailItem]:
         try:
             # Get sender information
             try:
@@ -99,11 +84,30 @@ class EmailCollector:
                 sender_name = "Unknown"
                 sender_email = "unknown@unknown.com"
                 
-            # Get body preview (first 200 chars)
+            # Apply VIP filtering if config provided
+            if config:
+                # Skip VIP filter for flagged emails - user explicitly wants to see them
+                is_flagged = item.FlagStatus > 0
+
+                if not is_flagged:  # Only filter non-flagged emails
+                    # Check if sender is VIP
+                    if not self._is_vip(sender_email, config):
+                        logger.debug(f"Filtered out non-VIP unread: {sender_email}")
+                        return None
+
+                    # Check if subject matches ignore patterns
+                    subject_text = item.Subject or ""
+                    if self._matches_ignore_patterns(subject_text, config):
+                        logger.debug(f"Filtered out by ignore pattern: {subject_text}")
+                        return None
+                else:
+                    logger.debug(f"Including flagged email from: {sender_email}")
+
+            # Get body preview (first 140 chars)
             body_preview = ""
             try:
                 if hasattr(item, "Body") and item.Body:
-                    body_preview = item.Body[:200].replace("\n", " ").replace("\r", " ")
+                    body_preview = item.Body[:140].replace("\n", " ").replace("\r", " ")
             except:
                 pass
                 
@@ -127,7 +131,8 @@ class EmailCollector:
                 has_attachments=item.Attachments.Count > 0,
                 categories=categories,
                 folder_name=folder,
-                body_preview=body_preview
+                body_preview=body_preview,
+                is_vip_sender=self._is_vip_sender(sender_email, config) if config else False
             )
         except Exception as e:
             logger.error(f"Error converting mail item: {e}")
@@ -142,8 +147,48 @@ class EmailCollector:
                 is_flagged=False,
                 is_unread=False,
                 has_attachments=False,
-                folder_name=folder
+                folder_name=folder,
+                body_preview=body_preview
             )
+
+    def _is_vip(self, email: str, config: Dict[str, Any]) -> bool:
+        """Check if email is from VIP domain or VIP sender."""
+        priorities = config.get('priorities', {})
+        vip_domains = [d.lower() for d in priorities.get('vip_domains', [])]
+        vip_senders = [s.lower() for s in priorities.get('vip_senders', [])]
+
+        email_lower = email.lower()
+
+        # Check if email is in VIP senders list
+        if email_lower in vip_senders:
+            return True
+
+        # Check if domain is in VIP domains list
+        if '@' in email_lower:
+            domain = email_lower.split('@')[1]
+            if domain in vip_domains:
+                return True
+
+        return False
+
+    def _is_vip_sender(self, email: str, config: Dict[str, Any]) -> bool:
+        """Check if email is from VIP senders list (individual people, not domains)."""
+        priorities = config.get('priorities', {})
+        vip_senders = [s.lower() for s in priorities.get('vip_senders', [])]
+        email_lower = email.lower()
+        return email_lower in vip_senders
+
+    def _matches_ignore_patterns(self, subject: str, config: Dict[str, Any]) -> bool:
+        """Check if subject matches any ignore patterns."""
+        priorities = config.get('priorities', {})
+        ignore_patterns = priorities.get('ignore_match', [])
+
+        subject_lower = subject.lower()
+        for pattern in ignore_patterns:
+            if pattern.lower() in subject_lower:
+                return True
+
+        return False
             
     def _convert_calendar_item(self, item) -> CalendarItem:
         try:

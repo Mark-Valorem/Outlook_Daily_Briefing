@@ -27,13 +27,13 @@ class SchedulerGuard:
             hour = self.current_time.hour
             minute = self.current_time.minute
             
-            # Morning window: 8:00 - 9:00
-            if 8 <= hour < 9:
+            # Morning window: 9:00 - 10:00
+            if 9 <= hour < 10:
                 logger.info("Auto mode: Morning briefing time detected")
                 return True
-                
-            # Evening window: 16:00 - 17:00
-            if 16 <= hour < 17:
+
+            # Evening window: 17:00 - 18:00
+            if 17 <= hour < 18:
                 logger.info("Auto mode: Evening briefing time detected")
                 return True
                 
