@@ -158,3 +158,15 @@ class OutlookClient:
                 
         mail.Send()
         logger.info(f"Email sent to {to} with subject: {subject}")
+
+    def disconnect(self):
+        """Release COM objects to allow clean exit."""
+        try:
+            # Release COM object references
+            if self.namespace:
+                self.namespace = None
+            if self.outlook:
+                self.outlook = None
+            logger.info("Outlook COM connection released")
+        except Exception as e:
+            logger.warning(f"Error during disconnect: {e}")

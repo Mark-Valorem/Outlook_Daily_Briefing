@@ -69,7 +69,8 @@ def main():
         actual_mode = args.mode if args.mode != 'force' else guard.get_mode_from_time()
         
     logger.info(f"Running in {actual_mode} mode")
-    
+
+    outlook = None  # Initialize before try block for cleanup in finally
     try:
         # Load configuration
         config = load_config(args.config)
@@ -177,7 +178,11 @@ def main():
     except Exception as e:
         logger.error(f"Unexpected error: {e}", exc_info=True)
         sys.exit(1)
-        
+    finally:
+        # CRITICAL: Always disconnect COM objects to prevent hanging
+        if outlook is not None:
+            outlook.disconnect()
+
     logger.info("Outlook Daily Briefing completed successfully")
 
 
