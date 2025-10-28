@@ -65,3 +65,17 @@ priorities:
     - pattern: "(?i)\\bmeeting\\b|\\bcalendar\\b|\\binvite\\b"
       priority: high
       suggest: "Confirm or propose time"
+
+# AI-Powered Email Analysis (Optional)
+ai_analysis:
+  enabled: false  # Set to true to enable AI-powered email summaries
+  provider: "anthropic"
+  model: "claude-3-5-sonnet-20241022"
+  api_key_env: "ANTHROPIC_API_KEY"  # Environment variable containing your API key
+  analyze_criteria: "flagged_or_vip"  # Which emails to analyze
+  # Options:
+  #   - "flagged_high": Only flagged + high importance emails
+  #   - "all_vip": All VIP emails in the report
+  #   - "top_priority": All flagged emails (regardless of importance)
+  #   - "flagged_or_vip": Flagged emails OR emails from VIP senders (recommended)
+  # Cost estimate: ~$0.10-0.20/month for typical usage (5-10 emails/day)
