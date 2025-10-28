@@ -210,23 +210,70 @@
         <h1>🔍 14-day Outlook Smart Review</h1>
         <p style="color: #605e5c; margin-top: -10px;">Generated: {{ timestamp_local }} | Mode: {{ mode|capitalize }}</p>
 
-        <div class="summary-stats">
-            <h3 style="margin: 0 0 15px 0; color: white; border: none;">Quick Summary</h3>
-            <div class="stats-grid">
-                <div class="stat-item">
-                    <p class="stat-number">{{ top_3_actions|length }}</p>
-                    <p class="stat-label">Urgent Actions</p>
-                </div>
-                <div class="stat-item">
-                    <p class="stat-number">{{ total_emails }}</p>
-                    <p class="stat-label">Total VIP Emails</p>
-                </div>
-                <div class="stat-item">
-                    <p class="stat-number">{{ total_days }}</p>
-                    <p class="stat-label">Days Covered</p>
-                </div>
-            </div>
-        </div>
+        <!-- Quick Summary - Outlook-safe table layout -->
+        <table style="width: 100%; background-color: #667eea; color: white; border-radius: 8px; margin: 20px 0; border: none;" cellpadding="20" cellspacing="0">
+            <tr>
+                <td style="padding: 20px;">
+                    <h3 style="margin: 0 0 15px 0; color: white; border: none; font-size: 18px; font-weight: 600;">Quick Summary</h3>
+                    <table style="width: 100%; border: none;" cellpadding="10" cellspacing="0">
+                        <tr>
+                            <td style="text-align: center; padding: 10px; border: none;">
+                                <p style="font-size: 32px; font-weight: bold; margin: 0; color: white;">{{ top_3_actions|length }}</p>
+                                <p style="font-size: 14px; margin: 5px 0 0 0; color: white; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">Urgent Actions</p>
+                            </td>
+                            <td style="text-align: center; padding: 10px; border: none;">
+                                <p style="font-size: 32px; font-weight: bold; margin: 0; color: white;">{{ total_emails }}</p>
+                                <p style="font-size: 14px; margin: 5px 0 0 0; color: white; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">Total VIP Emails</p>
+                            </td>
+                            <td style="text-align: center; padding: 10px; border: none;">
+                                <p style="font-size: 32px; font-weight: bold; margin: 0; color: white;">{{ total_days }}</p>
+                                <p style="font-size: 14px; margin: 5px 0 0 0; color: white; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">Days Covered</p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+
+        {% if flagged_emails %}
+        <!-- Flagged Emails Consolidated Block -->
+        <table style="width: 100%; background-color: #fff5f5; border: 2px solid #d83b01; border-radius: 8px; margin: 20px 0; border-collapse: separate;" cellpadding="20" cellspacing="0">
+            <tr>
+                <td style="padding: 20px;">
+                    <h2 style="margin: 0 0 10px 0; color: #d83b01; border: none; font-size: 22px; font-weight: 600;">🚩 Flagged Emails ({{ flagged_emails|length }})</h2>
+                    <p style="margin: 0 0 15px 0; color: #605e5c; font-size: 14px;">All flagged emails requiring your attention</p>
+                    {% for email in flagged_emails %}
+                    <table style="width: 100%; background-color: white; border-left: 4px solid #d83b01; margin: 10px 0; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" cellpadding="15" cellspacing="0">
+                        <tr>
+                            <td style="padding: 15px; border: none;">
+                                <div style="font-weight: 600; font-size: 16px; color: #323130; margin-bottom: 5px;">{{ email.subject }}</div>
+                                <div style="color: #605e5c; font-size: 14px; margin-bottom: 5px;">From: {{ email.sender_name }} &lt;{{ email.sender_email }}&gt;</div>
+                                <div style="font-size: 13px; color: #8a8886; margin-bottom: 8px;">
+                                    📅 {{ email.received_time|format_time }} on {{ email.received_time|format_date }}
+                                    {% if email.importance == 2 %} | <span style="color: #d83b01; font-weight: 600;">High Priority</span>{% endif %}
+                                </div>
+                                {% if email.ai_summary %}
+                                <div style="font-size: 13px; color: #605e5c; font-style: italic; margin-bottom: 8px; padding: 10px; background-color: #f9f9f9; border-radius: 4px;">
+                                    🤖🧠 {{ email.ai_summary }}
+                                </div>
+                                {% endif %}
+                                <div style="font-size: 13px;">
+                                    <span style="color: #107c10; font-weight: 500;">⚡ Action: </span>
+                                    <span style="color: #323130;">{% if email.ai_summary %}🇦🇮⚛️ {% endif %}{{ email.recommended_action }}</span>
+                                </div>
+                                {% if email.why_it_matters %}
+                                <div style="font-size: 12px; color: #8a8886; margin-top: 5px;">
+                                    <span style="font-weight: 500;">Why: </span>{{ email.why_it_matters }}
+                                </div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                    {% endfor %}
+                </td>
+            </tr>
+        </table>
+        {% endif %}
 
         {% if top_3_actions %}
         <div class="top-actions">
@@ -265,30 +312,44 @@
             <tbody>
                 {% for email in emails[:max_items_per_day] %}
                 <tr>
-                    <td class="priority-cell priority-{{ email.priority_label|lower }}">
+                    <td style="text-align: center; font-weight: 600; padding: 12px 10px; border-bottom: 1px solid #edebe9; vertical-align: top; {% if email.priority_label|lower == 'high' %}color: #d83b01;{% elif email.priority_label|lower == 'normal' %}color: #605e5c;{% elif email.priority_label|lower == 'low' %}color: #a19f9d;{% else %}color: #605e5c;{% endif %}">
                         {{ email.priority_label }}
                     </td>
-                    <td>{{ email.received_time|format_time }}</td>
-                    <td class="sender-cell" title="{{ email.sender_name }} <{{ email.sender_email }}>">
+                    <td style="padding: 12px 10px; border-bottom: 1px solid #edebe9; vertical-align: top;">{{ email.received_time|format_time }}</td>
+                    <td style="color: #605e5c; max-width: 200px; overflow: hidden; text-overflow: ellipsis; padding: 12px 10px; border-bottom: 1px solid #edebe9; vertical-align: top;" title="{{ email.sender_name }} <{{ email.sender_email }}>">
                         {{ email.sender_name }}
                     </td>
-                    <td class="subject-cell">{{ email.subject }}</td>
-                    <td class="snippet-cell">
+                    <td style="font-weight: 500; color: #323130; max-width: 300px; padding: 12px 10px; border-bottom: 1px solid #edebe9; vertical-align: top;">{{ email.subject }}</td>
+                    <td style="color: #605e5c; font-style: italic; max-width: 250px; font-size: 12px; padding: 12px 10px; border-bottom: 1px solid #edebe9; vertical-align: top;">
                         {% if email.ai_summary %}
                             🤖🧠 {{ email.ai_summary }}
                         {% else %}
                             {{ email.body_preview[:100] }}{% if email.body_preview|length > 100 %}...{% endif %}
                         {% endif %}
                     </td>
-                    <td>
-                        <span class="status-badge status-{{ email.status_label|lower }}">
+                    <td style="padding: 12px 10px; border-bottom: 1px solid #edebe9; vertical-align: top;">
+                        {% if email.status_label|lower == 'flagged' %}
+                        <span style="display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; background-color: #ffb900; color: white;">
                             {{ email.status_label }}
                         </span>
+                        {% elif email.status_label|lower == 'unread' %}
+                        <span style="display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; background-color: #0078d4; color: white;">
+                            {{ email.status_label }}
+                        </span>
+                        {% elif email.status_label|lower == 'vip' %}
+                        <span style="display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; background-color: #d13438; color: white;">
+                            {{ email.status_label }}
+                        </span>
+                        {% else %}
+                        <span style="display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; background-color: #8a8886; color: white;">
+                            {{ email.status_label }}
+                        </span>
+                        {% endif %}
                     </td>
-                    <td class="action-cell">
+                    <td style="color: #107c10; font-weight: 500; padding: 12px 10px; border-bottom: 1px solid #edebe9; vertical-align: top;">
                         {% if email.ai_summary %}🇦🇮⚛️ {% endif %}{{ email.recommended_action }}
                     </td>
-                    <td class="why-cell">{{ email.why_it_matters }}</td>
+                    <td style="color: #8a8886; font-size: 12px; max-width: 250px; padding: 12px 10px; border-bottom: 1px solid #edebe9; vertical-align: top;">{{ email.why_it_matters }}</td>
                 </tr>
                 {% endfor %}
                 {% if emails|length > max_items_per_day %}

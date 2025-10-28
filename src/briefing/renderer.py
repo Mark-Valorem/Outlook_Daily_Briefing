@@ -38,6 +38,10 @@ class ReportRenderer:
         top_3 = [e for e in all_emails if e.is_flagged and e.importance == 2]
         top_3 = sorted(top_3, key=lambda x: -x.received_time.timestamp())[:3]
 
+        # All Flagged Emails: For consolidated block at top, newest first
+        flagged_emails = [e for e in all_emails if e.is_flagged]
+        flagged_emails = sorted(flagged_emails, key=lambda x: -x.received_time.timestamp())
+
         # Convert day keys to formatted date strings
         days_formatted = {}
         for day_key, emails in sorted(grouped_by_day.items(), reverse=True):
@@ -51,6 +55,7 @@ class ReportRenderer:
             "mode": mode,
             "grouped_by_day": days_formatted,
             "top_3_actions": top_3,
+            "flagged_emails": flagged_emails,
             "max_items_per_day": config.get("report", {}).get("max_items_per_day", 50),
             "total_emails": len(all_emails),
             "total_days": len(grouped_by_day)
