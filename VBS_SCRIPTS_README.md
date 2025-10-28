@@ -137,13 +137,15 @@ Follow the same steps as morning briefing, but:
 3. Execute `.venv\Scripts\python.exe` with full paths
 4. Pass `--config`, `--mode` flags to the Python script
 5. Run silently with no console window (`0` parameter)
-6. Wait for completion (`True` parameter)
+6. Launch Python asynchronously and exit immediately (`False` parameter)
 
 ### Script parameters explained:
 - `0` = Hide console window (silent mode)
-- `True` = Wait for script to complete before exiting
+- `False` = Don't wait for completion (run async) - prevents Task Scheduler hanging
 - `--mode morning/evening` = Determines which briefing mode
 - `--dry-run` = Test mode, doesn't send emails
+
+**Note:** Production scripts use `False` to avoid Task Scheduler hanging. The Python script runs in the background and exits cleanly when done. The email is still sent successfully.
 
 ---
 

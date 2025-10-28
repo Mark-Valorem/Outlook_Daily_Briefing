@@ -12,7 +12,7 @@ scriptDir = CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScri
 objShell.CurrentDirectory = scriptDir
 
 ' Run the Python script with virtual environment in MORNING mode
-' Parameters: 0 = hide console window, True = wait for completion
-objShell.Run """" & scriptDir & "\.venv\Scripts\python.exe"" """ & scriptDir & "\src\run_summary.py"" --config """ & scriptDir & "\config\config.yaml"" --mode morning", 0, True
+' Parameters: 0 = hide console window, False = don't wait (run async)
+objShell.Run """" & scriptDir & "\.venv\Scripts\python.exe"" """ & scriptDir & "\src\run_summary.py"" --config """ & scriptDir & "\config\config.yaml"" --mode morning", 0, False
 
 Set objShell = Nothing
