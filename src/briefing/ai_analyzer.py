@@ -96,7 +96,7 @@ class EmailAnalyzer:
             # Call Anthropic API
             response = self.client.messages.create(
                 model=self.model,
-                max_tokens=200,
+                max_tokens=300,  # Increased for longer summaries (30-40 words)
                 temperature=0.3,  # Lower temperature for more consistent analysis
                 messages=[
                     {
@@ -123,7 +123,7 @@ class EmailAnalyzer:
     def _build_prompt(self, email_item) -> str:
         """Build the analysis prompt for Claude."""
         return f"""Analyze this business email and provide:
-1. One-sentence summary (max 15 words)
+1. Concise summary (30-40 words) highlighting key points and context
 2. Recommended action (max 8 words)
 3. Urgency level: Critical, High, or Medium
 
@@ -135,7 +135,7 @@ Importance: {"High" if email_item.importance == 2 else "Normal" if email_item.im
 Flagged: {"Yes" if email_item.is_flagged else "No"}
 
 Respond in this exact format:
-SUMMARY: [your one-sentence summary]
+SUMMARY: [your 30-40 word summary]
 ACTION: [your recommended action]
 URGENCY: [Critical/High/Medium]"""
 

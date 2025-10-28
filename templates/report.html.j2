@@ -273,7 +273,13 @@
                         {{ email.sender_name }}
                     </td>
                     <td class="subject-cell">{{ email.subject }}</td>
-                    <td class="snippet-cell">{{ email.body_preview[:100] }}{% if email.body_preview|length > 100 %}...{% endif %}</td>
+                    <td class="snippet-cell">
+                        {% if email.ai_summary %}
+                            🤖 {{ email.ai_summary }}
+                        {% else %}
+                            {{ email.body_preview[:100] }}{% if email.body_preview|length > 100 %}...{% endif %}
+                        {% endif %}
+                    </td>
                     <td>
                         <span class="status-badge status-{{ email.status_label|lower }}">
                             {{ email.status_label }}
