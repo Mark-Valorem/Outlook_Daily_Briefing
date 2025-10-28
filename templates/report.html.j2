@@ -275,7 +275,7 @@
                     <td class="subject-cell">{{ email.subject }}</td>
                     <td class="snippet-cell">
                         {% if email.ai_summary %}
-                            🤖 {{ email.ai_summary }}
+                            🤖🧠 {{ email.ai_summary }}
                         {% else %}
                             {{ email.body_preview[:100] }}{% if email.body_preview|length > 100 %}...{% endif %}
                         {% endif %}
@@ -286,7 +286,7 @@
                         </span>
                     </td>
                     <td class="action-cell">
-                        {% if email.ai_summary %}🤖 {% endif %}{{ email.recommended_action }}
+                        {% if email.ai_summary %}🇦🇮⚛️ {% endif %}{{ email.recommended_action }}
                     </td>
                     <td class="why-cell">{{ email.why_it_matters }}</td>
                 </tr>
