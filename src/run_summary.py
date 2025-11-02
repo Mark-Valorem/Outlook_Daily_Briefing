@@ -124,7 +124,7 @@ def main():
             logger.debug("AI analysis disabled or not available")
 
         # Render report
-        renderer = ReportRenderer()
+        renderer = ReportRenderer(config=config)
         html_report = renderer.render_report(grouped_by_day, config, actual_mode)
         subject = renderer.render_subject(config, actual_mode)
         

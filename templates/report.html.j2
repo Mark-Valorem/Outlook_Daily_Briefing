@@ -67,9 +67,7 @@
             width: 100px;
         }
         .email-cell {
-            color: #0078d4;
             font-family: 'Courier New', monospace;
-            font-weight: bold;
             font-size: 15px;
             width: 200px;
         }
@@ -117,7 +115,7 @@
                     <td class="subject-cell" colspan="2">{{ email.subject }}</td>
                 </tr>
                 <tr>
-                    <td class="email-cell">{{ email.sender_email }}</td>
+                    <td class="email-cell">{{ email.sender_email|email_color }}</td>
                     <td class="description-cell" colspan="2">
                         {% if email.ai_summary %}
                             {{ email.ai_summary }}

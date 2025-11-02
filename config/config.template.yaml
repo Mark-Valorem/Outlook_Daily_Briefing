@@ -21,6 +21,49 @@ behaviour:
   exclude_meeting_items: true
   timezone: "Australia/Sydney"
 
+# Email Categories for Color Coding in Reports
+# Each category maps email addresses/domains to their display color
+email_categories:
+  vip_senders:
+    color: "#FF0066"  # Pink for VIP individuals
+    addresses:
+      - "ceo@example.com"
+      - "important.person@example.com"
+  critical_customers:
+    color: "#EE0000"  # Bright red for critical customers
+    domains:
+      - "criticalclient.com"
+      - "majoraccount.com"
+  high_customers:
+    color: "#C00000"  # Dark red for high-importance customers
+    domains:
+      - "importantclient.com"
+      - "keycustomer.com"
+  medium_customers:
+    color: "#FF5050"  # Light red for medium customers
+    domains:
+      - "regularclient.com"
+  key_suppliers:
+    color: "#00B050"  # Green for suppliers
+    domains:
+      - "supplier1.com"
+      - "supplier2.com"
+  supply_chain:
+    color: "#E97132"  # Orange for logistics/supply chain
+    domains:
+      - "logistics.com"
+      - "shipping.com"
+  service_providers:
+    color: "#7030A0"  # Purple for service providers
+    domains:
+      - "itservices.com"
+      - "consultant.com"
+  internal_valorem:
+    color: "#0070C0"  # Blue for internal company emails
+    domains:
+      - "valorem.com.au"
+      - "yourcompany.com"
+
 priorities:
   vip_domains:
     - "valorem.com"
