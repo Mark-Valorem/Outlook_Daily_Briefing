@@ -31,34 +31,18 @@ class ReportRenderer:
 
         template = self.env.get_template("report.html.j2")
 
-        # Get all emails for Top 3 calculation
+        # Get all emails (should all be flagged now)
         all_emails = [email for day_emails in grouped_by_day.values() for email in day_emails]
 
-        # Top 3 Next Actions: Flagged + High Importance, newest first
-        top_3 = [e for e in all_emails if e.is_flagged and e.importance == 2]
-        top_3 = sorted(top_3, key=lambda x: -x.received_time.timestamp())[:3]
+        # Sort all flagged emails by received time, newest first
+        flagged_emails = sorted(all_emails, key=lambda x: -x.received_time.timestamp())
 
-        # All Flagged Emails: For consolidated block at top, newest first
-        flagged_emails = [e for e in all_emails if e.is_flagged]
-        flagged_emails = sorted(flagged_emails, key=lambda x: -x.received_time.timestamp())
-
-        # Convert day keys to formatted date strings
-        days_formatted = {}
-        for day_key, emails in sorted(grouped_by_day.items(), reverse=True):
-            date_obj = datetime.strptime(day_key, '%Y-%m-%d').date()
-            day_label = date_obj.strftime('%A %d %b %Y')  # "Friday 24 Oct 2025"
-            days_formatted[day_label] = emails
-
-        # Prepare context
+        # Prepare simplified context - no daily groupings, no top 3
         context = {
             "timestamp_local": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "mode": mode,
-            "grouped_by_day": days_formatted,
-            "top_3_actions": top_3,
             "flagged_emails": flagged_emails,
-            "max_items_per_day": config.get("report", {}).get("max_items_per_day", 50),
-            "total_emails": len(all_emails),
-            "total_days": len(grouped_by_day)
+            "total_emails": len(flagged_emails)
         }
 
         # Render HTML
@@ -78,21 +62,9 @@ class ReportRenderer:
         return html
         
     def render_subject(self, config: Dict[str, Any], mode: str = "morning") -> str:
-        template_str = config.get("report", {}).get("subject_template",
-                                                    "7-day Outlook Smart Review – {{ today }} {{ scheduled_time }}")
-
-        # Get today's date
+        # Use fixed subject for 31-day flagged review
         today = datetime.now().strftime("%Y-%m-%d")
-
-        # Map mode to scheduled time
-        scheduled_time = "09:00" if mode == "morning" else "17:00"
-
-        # Replace template variables
-        subject = template_str.replace("{{ today }}", today)
-        subject = subject.replace("{{ scheduled_time }}", scheduled_time)
-        subject = subject.replace("{{ mode }}", mode.capitalize())
-
-        return subject
+        return f"31-day Flagged Email Review – {today}"
         
     @staticmethod
     def _format_time(dt: datetime) -> str:
@@ -100,7 +72,7 @@ class ReportRenderer:
         
     @staticmethod
     def _format_date(dt: datetime) -> str:
-        return dt.strftime("%d %b")
+        return dt.strftime("%d %b %Y")
         
     @staticmethod
     def _truncate_subject(subject: str, max_length: int = 60) -> str:

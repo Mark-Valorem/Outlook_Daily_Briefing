@@ -94,12 +94,12 @@ def main():
             logger.warning("Could not connect to Outlook")
             sys.exit(0)
             
-        # Collect items (only VIP inbox emails now)
+        # Collect items (only flagged emails now)
         collector = EmailCollector(outlook)
         collected = collector.collect_all(config)
         all_emails = collected.get('inbox', [])
 
-        logger.info(f"Collected {len(all_emails)} VIP emails")
+        logger.info(f"Collected {len(all_emails)} flagged emails")
 
         # Prioritise and group by day
         prioritiser = EmailPrioritiser(config)
@@ -141,14 +141,14 @@ def main():
 
             # Print summary stats
             total_emails = sum(len(emails) for emails in grouped_by_day.values())
-            logger.info(f"\nTotal VIP emails: {total_emails}")
+            logger.info(f"\nTotal flagged emails: {total_emails}")
             logger.info(f"Days with emails: {len(grouped_by_day)}")
 
-            # Print sample from each day
+            # Print sample emails
             for day_key, emails in list(grouped_by_day.items())[:3]:
                 logger.info(f"\n{day_key}: {len(emails)} emails")
                 for email in emails[:2]:
-                    logger.info(f"  - [{email.status_label}] {email.subject[:60]}")
+                    logger.info(f"  - {email.subject[:60]}")
                     
         else:
             # Create temporary HTML file for attachment

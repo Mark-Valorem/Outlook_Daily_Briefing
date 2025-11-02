@@ -52,8 +52,9 @@ class EmailCollector:
 
     def collect_all(self, config: Dict[str, Any]) -> Dict[str, List[Any]]:
         behaviour = config.get("behaviour", {})
-        lookback_days = behaviour.get("lookback_days_inbox", 7)
-        unread_or_flagged_only = behaviour.get("include_unread_or_flagged_only", True)
+        lookback_days = behaviour.get("lookback_days_inbox", 31)
+        # Only collect flagged emails - force to True
+        unread_or_flagged_only = True
 
         collected = {
             "inbox": []
@@ -62,15 +63,15 @@ class EmailCollector:
         # Collect inbox items with MAPI filtering
         inbox_items = self.outlook.get_inbox_items(lookback_days, unread_or_flagged_only)
 
-        # Convert and apply VIP post-filtering
-        vip_filtered = []
+        # Convert and filter for ONLY flagged emails (no VIP filtering)
+        flagged_only = []
         for item in inbox_items:
             email_item = self._convert_mail_item(item, "Inbox", config)
-            if email_item:  # None means filtered out
-                vip_filtered.append(email_item)
+            if email_item and email_item.is_flagged:  # Only include flagged emails
+                flagged_only.append(email_item)
 
-        collected["inbox"] = vip_filtered
-        logger.info(f"Collected {len(inbox_items)} inbox items, {len(vip_filtered)} after VIP filtering")
+        collected["inbox"] = flagged_only
+        logger.info(f"Collected {len(inbox_items)} inbox items, {len(flagged_only)} flagged emails")
 
         return collected
         
@@ -79,29 +80,15 @@ class EmailCollector:
             # Get sender information
             try:
                 sender_name = item.SenderName
-                sender_email = item.SenderEmailAddress
+                # Use helper to extract SMTP address (handles Exchange DN format)
+                sender_email = self._extract_sender_email(item)
             except:
                 sender_name = "Unknown"
                 sender_email = "unknown@unknown.com"
-                
-            # Apply VIP filtering if config provided
-            if config:
-                # Skip VIP filter for flagged emails - user explicitly wants to see them
-                is_flagged = item.FlagStatus > 0
 
-                if not is_flagged:  # Only filter non-flagged emails
-                    # Check if sender is VIP
-                    if not self._is_vip(sender_email, config):
-                        logger.debug(f"Filtered out non-VIP unread: {sender_email}")
-                        return None
-
-                    # Check if subject matches ignore patterns
-                    subject_text = item.Subject or ""
-                    if self._matches_ignore_patterns(subject_text, config):
-                        logger.debug(f"Filtered out by ignore pattern: {subject_text}")
-                        return None
-                else:
-                    logger.debug(f"Including flagged email from: {sender_email}")
+            # No VIP filtering - we only want flagged emails regardless of sender
+            is_flagged = item.FlagStatus > 0
+            logger.debug(f"Processing email from {sender_email}, flagged: {is_flagged}")
 
             # Get body preview (first 140 chars)
             body_preview = ""
@@ -189,7 +176,58 @@ class EmailCollector:
                 return True
 
         return False
-            
+
+    def _extract_sender_email(self, item) -> str:
+        """Extract SMTP email address, handling Exchange DN format.
+
+        For Exchange DN paths like /O=EXCHANGELABS/OU=EXCHANGE ADMINISTRATIVE GROUP...,
+        this method attempts to extract the actual SMTP address via the Sender.GetExchangeUser()
+        method. Falls back to SenderName if extraction fails.
+
+        Args:
+            item: Outlook MailItem object
+
+        Returns:
+            str: SMTP email address, sender name, or "unknown@unknown.com"
+        """
+        try:
+            # Get raw sender email
+            sender_email = item.SenderEmailAddress
+
+            # If it's already in SMTP format (contains @), return it
+            if sender_email and '@' in sender_email:
+                return sender_email
+
+            # If it's Exchange DN format (/O=...), try to extract actual SMTP
+            if sender_email and sender_email.startswith(('/O=', '/o=')):
+                try:
+                    # Try to get ExchangeUser object for SMTP address
+                    if hasattr(item, 'Sender') and item.Sender:
+                        exchange_user = item.Sender.GetExchangeUser()
+                        if exchange_user and hasattr(exchange_user, 'PrimarySmtpAddress'):
+                            smtp = exchange_user.PrimarySmtpAddress
+                            if smtp:
+                                logger.debug(f"Resolved Exchange DN to SMTP: {smtp}")
+                                return smtp
+                except Exception as e:
+                    logger.debug(f"Could not resolve Exchange DN to SMTP: {e}")
+
+                # If we couldn't get SMTP, fall back to sender name instead of showing DN
+                try:
+                    sender_name = item.SenderName
+                    if sender_name and sender_name != "Unknown":
+                        logger.debug(f"Using sender name instead of Exchange DN: {sender_name}")
+                        return sender_name
+                except:
+                    pass
+
+            # Return whatever we have, or default
+            return sender_email or "unknown@unknown.com"
+
+        except Exception as e:
+            logger.debug(f"Error extracting sender email: {e}")
+            return "unknown@unknown.com"
+
     def _convert_calendar_item(self, item) -> CalendarItem:
         try:
             # Get attendees count

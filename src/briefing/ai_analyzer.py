@@ -121,22 +121,24 @@ class EmailAnalyzer:
             )
 
     def _build_prompt(self, email_item) -> str:
-        """Build the analysis prompt for Claude."""
-        return f"""Analyze this business email and provide:
-1. Concise summary (30-40 words) highlighting key points and context
-2. Recommended action (max 8 words)
-3. Urgency level: Critical, High, or Medium
+        """Build the analysis prompt for Claude using BLUF methodology."""
+        return f"""Analyze this flagged business email using BLUF (Bottom Line Up Front) methodology.
+
+Provide a 30-40 word BLUF summary that:
+- States the most critical information FIRST
+- Answers: What is this about and why does it matter?
+- Uses clear, direct, actionable language
+- Focuses on what the recipient needs to know immediately
 
 Email Details:
 From: {email_item.sender_name} <{email_item.sender_email}>
 Subject: {email_item.subject}
 Preview: {email_item.body_preview}
-Importance: {"High" if email_item.importance == 2 else "Normal" if email_item.importance == 1 else "Low"}
-Flagged: {"Yes" if email_item.is_flagged else "No"}
+Flagged: Yes
 
 Respond in this exact format:
-SUMMARY: [your 30-40 word summary]
-ACTION: [your recommended action]
+SUMMARY: [your 30-40 word BLUF summary]
+ACTION: [max 8 word recommended action]
 URGENCY: [Critical/High/Medium]"""
 
     def _parse_response(self, response_text: str) -> AIAnalysisResult:
