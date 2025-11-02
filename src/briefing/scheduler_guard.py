@@ -17,21 +17,21 @@ class SchedulerGuard:
             logger.info("Running in force mode - bypassing all checks")
             return True
 
-        # Check if it's a weekday (Monday=0 to Friday=4)
-        if self.current_day > 4:  # Saturday=5, Sunday=6
-            logger.info(f"Weekend detected ({self._day_name()}), skipping")
-            return False
-
-        # If specific mode is set (morning/evening), run on weekdays
+        # If specific mode is set (morning/evening), allow manual execution any day
         if mode in ["morning", "evening"]:
-            logger.info(f"Running in {mode} mode")
+            logger.info(f"Running in {mode} mode (manual execution allowed)")
             return True
-            
-        # Auto mode: determine based on current time
+
+        # Auto mode: apply weekday and time window restrictions
         if mode == "auto":
+            # Check if it's a weekday (Monday=0 to Friday=4)
+            if self.current_day > 4:  # Saturday=5, Sunday=6
+                logger.info(f"Auto mode: Weekend detected ({self._day_name()}), skipping")
+                return False
+
             hour = self.current_time.hour
             minute = self.current_time.minute
-            
+
             # Morning window: 9:00 - 10:00
             if 9 <= hour < 10:
                 logger.info("Auto mode: Morning briefing time detected")
@@ -41,10 +41,10 @@ class SchedulerGuard:
             if 17 <= hour < 18:
                 logger.info("Auto mode: Evening briefing time detected")
                 return True
-                
+
             logger.info(f"Auto mode: Outside briefing windows (current time: {hour:02d}:{minute:02d})")
             return False
-            
+
         return True
         
     def _day_name(self) -> str:
