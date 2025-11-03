@@ -60,18 +60,29 @@ class EmailCollector:
             "inbox": []
         }
 
+        # Calculate cutoff date for post-filtering (Outlook MAPI filter doesn't work reliably for flagged emails)
+        cutoff_date = datetime.now() - timedelta(days=lookback_days)
+        logger.debug(f"Cutoff date for {lookback_days} day lookback: {cutoff_date.strftime('%Y-%m-%d')}")
+
         # Collect inbox items with MAPI filtering
         inbox_items = self.outlook.get_inbox_items(lookback_days, unread_or_flagged_only)
 
-        # Convert and filter for ONLY flagged emails (no VIP filtering)
+        # Convert and filter for ONLY flagged emails within date range
         flagged_only = []
         for item in inbox_items:
             email_item = self._convert_mail_item(item, "Inbox", config)
             if email_item and email_item.is_flagged:  # Only include flagged emails
-                flagged_only.append(email_item)
+                # POST-FILTER: Ensure email is within lookback window
+                # This is necessary because Outlook's MAPI filter doesn't reliably filter flagged emails by date
+                # NOTE: Outlook COM returns timezone-aware datetime, so we strip timezone for comparison
+                received_date_naive = email_item.received_time.replace(tzinfo=None)
+                if received_date_naive >= cutoff_date:
+                    flagged_only.append(email_item)
+                else:
+                    logger.debug(f"Filtered out old flagged email: {email_item.subject[:40]} from {email_item.received_time.strftime('%Y-%m-%d')}")
 
         collected["inbox"] = flagged_only
-        logger.info(f"Collected {len(inbox_items)} inbox items, {len(flagged_only)} flagged emails")
+        logger.info(f"Collected {len(inbox_items)} inbox items, {len(flagged_only)} flagged emails within {lookback_days} days")
 
         return collected
         
